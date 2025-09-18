@@ -1,103 +1,108 @@
-import Image from "next/image";
+"use client";
+import React, { useState, useMemo, useEffect } from 'react';
+import type { Concept, Tag } from '@/types';
+import { concepts, itemsDraft, users, tags, itemConcepts as itemConceptsMap, itemTags as itemTagsMap } from '@/lib/mockData';
+import FilterSidebar from '@/components/FilterSidebar';
+import ItemList from '@/components/ItemList';
+import ItemDetail from '@/components/ItemDetail';
+import { FullItem } from '@/types/ui';
 
-export default function Home() {
+const App: React.FC = () => {
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [filters, setFilters] = useState<{
+    status: string[];
+    grades: number[];
+    strands: string[];
+  }>({ status: [], grades: [], strands: [] });
+
+  const conceptMap = useMemo(() => new Map(concepts.map(c => [c.id, c])), []);
+  const userMap = useMemo(() => new Map(users.map(u => [u.id, u])), []);
+  const tagMap = useMemo(() => new Map(tags.map(t => [t.id, t])), []);
+
+  const fullItems = useMemo((): FullItem[] => {
+    return itemsDraft.map(draft => {
+      const itemConcepts = itemConceptsMap
+          .filter(ic => ic.item_id === draft.id)
+          .map(ic => {
+            const concept = conceptMap.get(ic.concept_id);
+            return concept ? { ...concept, weight: ic.weight } : null;
+          })
+          .filter((c): c is Concept & { weight: number } => c !== null);
+
+      const itemTags = itemTagsMap
+          .filter(it => it.item_id === draft.id)
+          .map(it => tagMap.get(it.tag_id))
+          .filter((t): t is Tag => t !== undefined);
+
+      const author = userMap.get(draft.created_by);
+
+      return {
+        ...draft,
+        concepts: itemConcepts,
+        tags: itemTags,
+        author,
+      };
+    });
+  }, [conceptMap, userMap, tagMap]);
+
+  const filteredItems = useMemo(() => {
+    return fullItems.filter(item => {
+      const statusMatch = filters.status.length === 0 || filters.status.includes(item.status);
+      const gradeMatch = filters.grades.length === 0 || item.concepts.some(c => filters.grades.includes(c.grade));
+      const strandMatch = filters.strands.length === 0 || item.concepts.some(c => filters.strands.includes(c.strand));
+      return statusMatch && gradeMatch && strandMatch;
+    });
+  }, [fullItems, filters]);
+
+  const selectedItem = useMemo(() => {
+    if (!selectedItemId) return null;
+    return fullItems.find(item => item.id === selectedItemId) || null;
+  }, [selectedItemId, fullItems]);
+
+  useEffect(() => {
+    // When filters change, if the currently selected item is no longer in the filtered list, deselect it.
+    if (selectedItemId && !filteredItems.some(item => item.id === selectedItemId)) {
+      setSelectedItemId(null);
+    }
+  }, [filteredItems, selectedItemId]);
+
+
+  const handleSelecteItem = (id: string) => {
+    setSelectedItemId(id);
+  };
+
+  const handleClearSelection = () => {
+    setSelectedItemId(null);
+  }
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+      <div className="bg-slate-50 min-h-screen font-sans text-slate-800">
+        <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
+          <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between h-16">
+              <div className="flex items-center space-x-4">
+                <svg className="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                <h1 className="text-xl font-bold text-slate-900">مستودع الأسئلة</h1>
+              </div>
+            </div>
+          </div>
+        </header>
+        <main className="max-w-screen-2xl mx-auto p-4 sm:p-6 lg:p-8">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+            <aside className="lg:col-span-1">
+              <FilterSidebar filters={filters} setFilters={setFilters} />
+            </aside>
+            <div className="lg:col-span-3">
+              {selectedItem ? (
+                  <ItemDetail item={selectedItem} onBack={handleClearSelection} />
+              ) : (
+                  <ItemList items={filteredItems} onSelectItem={handleSelecteItem} />
+              )}
+            </div>
+          </div>
+        </main>
+      </div>
   );
-}
+};
+
+export default App;
