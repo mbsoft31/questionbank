@@ -83,6 +83,23 @@ CREATE TABLE IF NOT EXISTS items_prod (
   stem_ar TEXT, latex TEXT NULL, difficulty_params TEXT NULL,
   published_ver INTEGER, concept_main_id TEXT NULL, meta TEXT, published_at TEXT
 );
+
+CREATE INDEX IF NOT EXISTS idx_items_draft_status      ON items_draft(status);
+CREATE INDEX IF NOT EXISTS idx_items_draft_item_type   ON items_draft(item_type);
+CREATE INDEX IF NOT EXISTS idx_items_draft_updated_at  ON items_draft(updated_at);
+-- Concept mapping
+CREATE INDEX IF NOT EXISTS idx_item_concepts_concept   ON item_concepts(concept_id, item_id);
+-- Child rows (owner lookup)
+CREATE INDEX IF NOT EXISTS idx_options_owner           ON item_options(owner_type, owner_id, order_index);
+CREATE INDEX IF NOT EXISTS idx_hints_owner             ON item_hints(owner_type, owner_id, order_index);
+CREATE INDEX IF NOT EXISTS idx_solutions_owner         ON item_solutions(owner_type, owner_id);
+CREATE INDEX IF NOT EXISTS idx_media_owner             ON item_media(owner_type, owner_id, order_index);
+CREATE INDEX IF NOT EXISTS idx_item_tags_item          ON item_tags(item_id, tag_id);
+-- Prod
+CREATE INDEX IF NOT EXISTS idx_items_prod_type         ON items_prod(item_type);
+CREATE INDEX IF NOT EXISTS idx_items_prod_concept      ON items_prod(concept_main_id);
+CREATE INDEX IF NOT EXISTS idx_items_prod_published_at ON items_prod(published_at);
+
 `);
 
 const tables = [
@@ -154,7 +171,41 @@ sqlite.transaction(() => {
     // items_prod
     stmt = sqlite.prepare(`INSERT INTO items_prod VALUES (@id,@source_draft_id,@item_type,@stem_ar,@latex,@difficulty_params,@published_ver,@concept_main_id,@meta,@published_at)`);
     itemsProd.forEach(p => stmt.run({ ...p, difficulty_params: j(p.difficulty_params), meta: j(p.meta) }));
+
 })();
+
+sqlite.exec(`
+-- FTS5 over stem_ar + latex, using external content table
+CREATE VIRTUAL TABLE IF NOT EXISTS items_draft_fts
+USING fts5(
+  stem_ar, 
+  latex, 
+  content='items_draft', 
+  content_rowid='id',
+  tokenize = 'unicode61'
+);
+
+-- keep FTS in sync
+CREATE TRIGGER IF NOT EXISTS items_draft_ai AFTER INSERT ON items_draft BEGIN
+  INSERT INTO items_draft_fts(rowid, stem_ar, latex)
+  VALUES (new.id, new.stem_ar, IFNULL(new.latex,''));
+END;
+
+CREATE TRIGGER IF NOT EXISTS items_draft_ad AFTER DELETE ON items_draft BEGIN
+  INSERT INTO items_draft_fts(items_draft_fts, rowid, stem_ar, latex)
+  VALUES ('delete', old.id, old.stem_ar, IFNULL(old.latex,''));
+END;
+
+CREATE TRIGGER IF NOT EXISTS items_draft_au AFTER UPDATE ON items_draft BEGIN
+  INSERT INTO items_draft_fts(items_draft_fts, rowid, stem_ar, latex)
+  VALUES ('delete', old.id, old.stem_ar, IFNULL(old.latex,''));
+  INSERT INTO items_draft_fts(rowid, stem_ar, latex)
+  VALUES (new.id, new.stem_ar, IFNULL(new.latex,''));
+END;
+
+-- initial full rebuild from content table
+INSERT INTO items_draft_fts(items_draft_fts) VALUES('rebuild');
+`);
 
 sqlite.exec("PRAGMA foreign_keys = ON;");
 console.log("✅ SQLite seed complete.");

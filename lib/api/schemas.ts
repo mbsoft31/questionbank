@@ -3,6 +3,7 @@ import { z } from "zod";
 /** Shared */
 export const zUUID = z.string().uuid().or(z.string()); // mock UUIDs may not be strict RFC4122
 export const zISO = z.string();
+export const zJSON = z.record(z.string(), z.unknown());
 
 /** Pagination envelope */
 export const zPage = <T extends z.ZodTypeAny>(inner: T) =>
@@ -22,7 +23,7 @@ export const zConcept = z.object({
     strand: z.enum(["algebra", "functions", "geometry", "calculus", "stats"]),
     parent_id: zUUID.nullish(),
     order_index: z.number().int(),
-    meta: z.record(z.unknown()),
+    meta: zJSON.optional(),
     created_at: zISO,
     updated_at: zISO,
 });
@@ -38,7 +39,7 @@ export const zItemDraft = z.object({
     difficulty_est: z.number().nullable().optional(),
     created_by: zUUID,
     updated_by: zUUID,
-    meta: z.record(z.unknown()),
+    meta: zJSON.optional(),
     created_at: zISO,
     updated_at: zISO,
 });
@@ -52,7 +53,7 @@ export const zOption = z.object({
     latex: z.string().nullable().optional(),
     is_correct: z.boolean(),
     explanation_ar: z.string().nullable().optional(),
-    meta: z.record(z.unknown()),
+    meta: zJSON.optional(),
 });
 
 export const zHint = z.object({
@@ -62,7 +63,7 @@ export const zHint = z.object({
     order_index: z.number().int(),
     hint_ar: z.string(),
     trigger_rule: z.string().nullable().optional(),
-    meta: z.record(z.unknown()),
+    meta: zJSON.optional(),
 });
 
 export const zSolution = z.object({
@@ -72,7 +73,7 @@ export const zSolution = z.object({
     steps: z.array(z.object({ text_ar: z.string(), expr_latex: z.string().nullable().optional() })),
     final_answer: z.string().nullable().optional(),
     final_latex: z.string().nullable().optional(),
-    meta: z.record(z.unknown()),
+    meta: zJSON.optional(),
 });
 
 export const zDraftWithChildren = zItemDraft.extend({
@@ -93,10 +94,10 @@ export const zItemProd = z.object({
     item_type: z.enum(["mcq", "multi_select", "numeric", "short_text", "proof"]),
     stem_ar: z.string(),
     latex: z.string().nullable().optional(),
-    difficulty_params: z.record(z.number()).partial().nullable().optional(),
+    difficulty_params: z.record(z.string(), z.number()).nullable().optional(),
     published_ver: z.number().int(),
     concept_main_id: zUUID.nullish(),
-    meta: z.record(z.unknown()),
+    meta: zJSON.optional(),
     published_at: zISO,
 });
 export const zProdWithChildren = zItemProd.extend({

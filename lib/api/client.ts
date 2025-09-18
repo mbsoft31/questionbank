@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery, UseQueryOptions } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import {
     zConceptPage,

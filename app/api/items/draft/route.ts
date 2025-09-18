@@ -1,4 +1,4 @@
-import { ok, badRequest } from "../../_lib/utils";
+import { ok } from "../../_lib/utils";
 import { fetchDraftPage } from "../../_lib/sql-dal";
 export const runtime = 'nodejs'
 export const dynamic = "force-dynamic";
@@ -19,15 +19,3 @@ export async function GET(request: Request) {
     const page = await fetchDraftPage(searchParams, include);
     return ok(page);
 }
-
-export async function POST(request: Request) {
-    // For mock-only dev: accept payload and echo (no persistence)
-    try {
-        const body = await request.json();
-        return ok({ created: true, draft: body }, { status: 201 });
-    } catch {
-        return badRequest("Invalid JSON");
-    }
-}
-
-
